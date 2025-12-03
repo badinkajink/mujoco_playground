@@ -37,7 +37,7 @@ EXTERNAL_DEPS_PATH = epath.Path(__file__).parent.parent / "external_deps"
 # Resource paths do not have glob implemented, so we use a bare epath.Path.
 MENAGERIE_PATH = EXTERNAL_DEPS_PATH / "mujoco_menagerie"
 # Commit SHA of the menagerie repo.
-MENAGERIE_COMMIT_SHA = "1b86ece576591213e2b666ebf59508454200ca97"
+MENAGERIE_COMMIT_SHA = "e95616395529f0c4093d97a8759b0eb1160a95e6"
 
 
 def _clone_with_progress(
@@ -99,7 +99,7 @@ def ensure_menagerie_exists() -> None:
 
     try:
       _clone_with_progress(
-          "https://github.com/deepmind/mujoco_menagerie.git",
+          "https://github.com/badinkajink/mujoco_menagerie.git",
           str(MENAGERIE_PATH),
           MENAGERIE_COMMIT_SHA,
       )
