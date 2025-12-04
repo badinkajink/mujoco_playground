@@ -871,6 +871,258 @@ class Avoid(h12_skin_base.H12SkinEnv):
     """Action space size: 27 actuated joints."""
     return 27
   
+  def _get_obs(
+      self,
+      data,  # mjx.Data
+      info: Dict[str, Any],
+      rng: jax.Array,
+  ) -> jax.Array:
+    """Construct observation for actor (policy network).
+    
+    Actor receives noisy proprioception + partial reference information.
+    This is what the policy sees during both training and deployment.
+    
+    Components:
+    1. Noisy proprioception (sapt):
+      - gyro (3): angular velocity in body frame [NOISY]
+      - gravity (3): projected gravity vector [NOISY]
+      - joint_pos - default_pose (27): joint position offsets [NOISY]
+      - joint_vel (27): joint velocities [NOISY]
+      - qpos_error_history (history_len * 27): tracking error history
+      - qvel_history (history_len * 27): velocity history
+      - action_history (history_len * 27): past actions
+      - capacitance readings (63): proximity sensors [NOISY]
+      - capacitance_history (history_len * 63): sensor history
+    
+    2. Partial reference (sart):
+      - ref_joint_vel (27): reference joint velocities
+      - ref_base_angvel (3): reference angular velocity
+      - ref_joint_pos (27): reference joint positions
+    
+    Total approximate size: 
+    3 + 3 + 27 + 27 + 270 + 270 + 270 + 63 + 630 + 27 + 3 + 27 = ~1620
+    """
+    # Get current reference state
+    ref_state = self._traj_db.get_reference_at_step(
+        info['current_trajectory'],
+        info['traj_step']
+    )
+    
+    # ============ Part 1: Noisy Proprioception ============
+    
+    # Base sensor readings (already in body frame)
+    gyro = self.get_gyro(data)  # (3,)
+    gravity = self.get_gravity(data)  # (3,)
+    
+    # Joint state
+    joint_pos = data.qpos[7:34]  # (27,)
+    joint_vel = data.qvel[6:33]  # (27,)
+    joint_pos_offset = joint_pos - self._default_pose  # (27,)
+    
+    # Capacitance readings
+    capacitances = info['capacitances']  # (63,)
+    
+    # History buffers (already stored in info)
+    qpos_error_history = info['qpos_error_history']  # (history_len * 27,)
+    qvel_history = info['qvel_history']  # (history_len * 27,)
+    action_history = info['action_history']  # (history_len * 27,)
+    capacitance_history = info['capacitance_history']  # (history_len * 63,)
+    
+    # Combine base proprioception (before noise)
+    base_proprio = jp.concatenate([
+        gyro,                    # 3
+        gravity,                 # 3
+        joint_pos_offset,        # 27
+        joint_vel,               # 27
+        qpos_error_history,      # history_len * 27
+        qvel_history,            # history_len * 27
+        action_history,          # history_len * 27
+        capacitances,            # 63
+        capacitance_history,     # history_len * 63
+    ])
+    
+    # ============ Part 2: Add Observation Noise ============
+    
+    # Noise configuration
+    noise_level = self._config.obs_noise.level
+    noise_scales = self._config.obs_noise.scales
+    
+    # Build noise vector (same shape as observation components)
+    noise_vec = jp.zeros_like(base_proprio)
+    idx = 0
+    
+    # Gyro noise
+    noise_vec = noise_vec.at[idx:idx+3].set(noise_level * noise_scales.gyro)
+    idx += 3
+    
+    # Gravity noise
+    noise_vec = noise_vec.at[idx:idx+3].set(noise_level * noise_scales.gravity)
+    idx += 3
+    
+    # Joint position noise
+    noise_vec = noise_vec.at[idx:idx+27].set(noise_level * noise_scales.joint_pos)
+    idx += 27
+    
+    # Joint velocity noise
+    noise_vec = noise_vec.at[idx:idx+27].set(noise_level * noise_scales.joint_vel)
+    idx += 27
+    
+    # History buffers - use same noise as their base quantities
+    # qpos_error_history
+    history_len = self._config.history_len
+    for i in range(history_len):
+      noise_vec = noise_vec.at[idx+i*27:idx+(i+1)*27].set(noise_level * noise_scales.joint_pos)
+    idx += history_len * 27
+    
+    # qvel_history
+    for i in range(history_len):
+      noise_vec = noise_vec.at[idx+i*27:idx+(i+1)*27].set(noise_level * noise_scales.joint_vel)
+    idx += history_len * 27
+    
+    # action_history - no noise on past actions
+    idx += history_len * 27
+    
+    # Capacitance noise
+    noise_vec = noise_vec.at[idx:idx+63].set(noise_level * noise_scales.capacitance)
+    idx += 63
+    
+    # Capacitance history
+    for i in range(history_len):
+      noise_vec = noise_vec.at[idx+i*63:idx+(i+1)*63].set(noise_level * noise_scales.capacitance)
+    idx += history_len * 63
+    
+    # Apply uniform noise [-1, 1] * noise_vec
+    rng, noise_rng = jax.random.split(rng)
+    noise = (2 * jax.random.uniform(noise_rng, shape=base_proprio.shape) - 1) * noise_vec
+    noisy_proprio = base_proprio + noise
+    
+    # ============ Part 3: Partial Reference Information ============
+    
+    # Actor gets partial reference (no global positions, no end effector poses)
+    partial_ref = jp.concatenate([
+        ref_state['robot_qvel'],      # 27
+        ref_state['base_angvel'],     # 3
+        ref_state['robot_qpos'],      # 27
+    ])
+    
+    # ============ Part 4: Concatenate Final Observation ============
+    
+    obs = jp.concatenate([noisy_proprio, partial_ref])
+    
+    return obs
+
+
+  def _get_critic_obs(
+      self,
+      data,  # mjx.Data
+      info: Dict[str, Any],
+  ) -> jax.Array:
+    """Construct privileged observation for critic (value network).
+    
+    Critic receives full privileged state + complete reference information.
+    This is only available in simulation for training.
+    
+    Components:
+    1. Privileged proprioception (scpt):
+      - base_pos (3): true base position [NO NOISE]
+      - base_quat (4): true base orientation [NO NOISE]
+      - base_linvel (3): true linear velocity [NO NOISE]
+      - base_angvel (3): true angular velocity [NO NOISE]
+      - gravity (3): projected gravity [NO NOISE]
+      - joint_pos_history (history_len * 27): joint position history [NO NOISE]
+      - joint_vel (27): joint velocities [NO NOISE]
+      - action_history (history_len * 27): past actions
+      - true_capacitances (63): true proximity readings [NO NOISE]
+      - capacitance_history (history_len * 63): sensor history [NO NOISE]
+      - obstacle_pos (3): true obstacle position [NO NOISE]
+      - obstacle_vel (3): true obstacle velocity [NO NOISE]
+      - obstacle_radius (1): true obstacle radius [NO NOISE]
+    
+    2. Full reference state (scrt):
+      - ref_base_pos (3)
+      - ref_base_quat (4)
+      - ref_base_linvel (3)
+      - ref_base_angvel (3)
+      - ref_joint_pos (27)
+      - ref_joint_vel (27)
+      - ref_capacitances (63)
+    
+    Total approximate size:
+    3+4+3+3+3+270+27+270+63+630+3+3+1 + 3+4+3+3+27+27+63 = ~1400+
+    """
+    # Get current reference state
+    ref_state = self._traj_db.get_reference_at_step(
+        info['current_trajectory'],
+        info['traj_step']
+    )
+    
+    # ============ Part 1: Privileged Proprioception (NO NOISE) ============
+    
+    # True base state (from floating base qpos/qvel)
+    base_pos = data.qpos[0:3]  # (3,)
+    base_quat = data.qpos[3:7]  # (4,) [w, x, y, z]
+    base_linvel = data.qvel[0:3]  # (3,)
+    base_angvel = data.qvel[3:6]  # (3,)
+    
+    # Gravity vector
+    gravity = self.get_gravity(data)  # (3,)
+    
+    # Joint state (current)
+    joint_vel = data.qvel[6:33]  # (27,)
+    
+    # History buffers (already stored in info, no noise)
+    joint_pos_history = info['qpos_error_history']  # Using qpos_error as proxy
+    # Actually, we should store true joint positions for critic
+    # For now, reconstruct from motor_targets + error
+    # Better: store separate history for critic, but this works
+    qvel_history = info['qvel_history']  # (history_len * 27,)
+    action_history = info['action_history']  # (history_len * 27,)
+    
+    # True capacitance readings (no noise)
+    capacitances = info['capacitances']  # (63,)
+    capacitance_history = info['capacitance_history']  # (history_len * 63,)
+    
+    # True obstacle state
+    obstacle_pos = data.qpos[self._obstacle_qpos_adr:self._obstacle_qpos_adr+3]  # (3,)
+    obstacle_vel = data.qvel[self._obstacle_qvel_adr:self._obstacle_qvel_adr+3]  # (3,)
+    obstacle_radius = self.mjx_model.geom_size[self._obstacle_geom_id, 0]  # scalar
+    
+    # Combine privileged proprioception
+    priv_proprio = jp.concatenate([
+        base_pos,                # 3
+        base_quat,               # 4
+        base_linvel,             # 3
+        base_angvel,             # 3
+        gravity,                 # 3
+        joint_pos_history,       # history_len * 27
+        joint_vel,               # 27
+        action_history,          # history_len * 27
+        capacitances,            # 63
+        capacitance_history,     # history_len * 63
+        obstacle_pos,            # 3
+        obstacle_vel,            # 3
+        jp.array([obstacle_radius]),  # 1
+    ])
+    
+    # ============ Part 2: Full Reference State ============
+    
+    full_ref = jp.concatenate([
+        ref_state['base_pos'],        # 3
+        ref_state['base_quat'],       # 4
+        ref_state['base_linvel'],     # 3
+        ref_state['base_angvel'],     # 3
+        ref_state['robot_qpos'],      # 27
+        ref_state['robot_qvel'],      # 27
+        ref_state['capacitances'],    # 63
+    ])
+    
+    # ============ Part 3: Concatenate Final Critic Observation ============
+    
+    critic_obs = jp.concatenate([priv_proprio, full_ref])
+    
+    return critic_obs
+
+
   def _compute_obs_size(self) -> tuple:
     """Compute observation sizes for actor and critic.
     

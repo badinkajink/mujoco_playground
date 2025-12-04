@@ -29,7 +29,7 @@ from mujoco_playground._src.locomotion.h12_skin import h12_skin_constants as con
 def get_assets() -> Dict[str, bytes]:
   assets = {}
   mjx_env.update_assets(assets, consts.ROOT_PATH, "*.xml")
-  path = mjx_env.MENAGERIE_PATH / "unitree_h1"
+  path = mjx_env.MENAGERIE_PATH / "unitree_h12_skin"
   mjx_env.update_assets(assets, path, "*.xml")
   mjx_env.update_assets(assets, path / "assets")
   return assets
