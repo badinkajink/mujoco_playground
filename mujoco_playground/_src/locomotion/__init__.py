@@ -34,6 +34,7 @@ from mujoco_playground._src.locomotion.go1 import joystick as go1_joystick
 from mujoco_playground._src.locomotion.go1 import randomize as go1_randomize
 from mujoco_playground._src.locomotion.h1 import inplace_gait_tracking as h1_inplace_gait_tracking
 from mujoco_playground._src.locomotion.h1 import joystick_gait_tracking as h1_joystick_gait_tracking
+from mujoco_playground._src.locomotion.h12_skin import avoid as h12_skin_avoid 
 from mujoco_playground._src.locomotion.op3 import joystick as op3_joystick
 from mujoco_playground._src.locomotion.spot import getup as spot_getup
 from mujoco_playground._src.locomotion.spot import joystick as spot_joystick
@@ -70,6 +71,7 @@ _envs = {
     "Go1Footstand": go1_handstand.Footstand,
     "H1InplaceGaitTracking": h1_inplace_gait_tracking.InplaceGaitTracking,
     "H1JoystickGaitTracking": h1_joystick_gait_tracking.JoystickGaitTracking,
+    "H12SkinAvoid": h12_skin_avoid.Avoid,
     "Op3Joystick": op3_joystick.Joystick,
     "SpotFlatTerrainJoystick": functools.partial(
         spot_joystick.Joystick, task="flat_terrain"
@@ -104,6 +106,7 @@ _cfgs = {
     "Go1Footstand": go1_handstand.default_config,
     "H1InplaceGaitTracking": h1_inplace_gait_tracking.default_config,
     "H1JoystickGaitTracking": h1_joystick_gait_tracking.default_config,
+    "H12SkinAvoid": h12_skin_avoid.default_config,
     "Op3Joystick": op3_joystick.default_config,
     "SpotFlatTerrainJoystick": spot_joystick.default_config,
     "SpotGetup": spot_getup.default_config,

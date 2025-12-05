@@ -152,6 +152,7 @@ def brax_ppo_config(
       "BarkourJoystick",
       "H1InplaceGaitTracking",
       "H1JoystickGaitTracking",
+      "H12SkinAvoid",
       "Op3Joystick",
       "SpotFlatTerrainJoystick",
       "SpotGetup",
