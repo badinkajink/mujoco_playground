@@ -69,7 +69,7 @@ def default_config() -> config_dict.ConfigDict:
               recovery_feet_contact=0.3,
               
               # Avoidance rewards (always active)
-              clearance_reward=1.0,
+              clearance_reward=0.0, #1.0, i dont think this is a good reward, zeroing out
               
               # Penalties (always active)
               collision_penalty=-100.0,
@@ -87,7 +87,7 @@ def default_config() -> config_dict.ConfigDict:
           eps=1.0,
           sensing_radius=0.15,
           collision_threshold=80.0,
-          safe_threshold=3.0,
+          safe_threshold=10.0, # determined ad hoc by looking at some csvs, 1/0.10m
       ),
       
       traj_dir="/home/wxie/workspace/h1_mujoco/augmented",
@@ -1562,7 +1562,8 @@ class Avoid(h12_skin_base.H12SkinEnv):
     in_range = capacitances > 0.0
     
     # Compute sum of squared capacitances (stronger penalty when close)
-    proximity = jp.where(in_range, capacitances ** 2, 0.0)
+    # proximity = jp.where(in_range, capacitances ** 2, 0.0)
+    proximity = jp.where(in_range, capacitances, 0.0)
     total_proximity = jp.sum(proximity)
     
     # Normalize by number of sensors for consistent scale
