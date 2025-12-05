@@ -610,7 +610,6 @@ class Avoid(h12_skin_base.H12SkinEnv):
     Loads trajectory database, extracts model IDs, and sets up tracking.
     """
     # 1. Load trajectory database
-    from avoid import create_trajectory_database  # Import from your main file
     self._traj_db = create_trajectory_database(
         self._config.traj_dir,
         control_freq_hz=1.0 / self._config.ctrl_dt,
@@ -662,9 +661,9 @@ class Avoid(h12_skin_base.H12SkinEnv):
     # 6. Get torso body ID for COM tracking
     self._torso_body_id = self._mj_model.body("torso_link").id
     
-    # 7. History sampling parameters (for 50Hz history from 200Hz control)
-    # With ctrl_dt=0.02 (50Hz control), we want history every 4 steps
-    self._history_delta = int(0.08 / self._config.ctrl_dt)  # Every 4 steps at 50Hz
+    # 7. History sampling parameters (for 50Hz history from 500Hz control)
+    # With ctrl_dt=0.02 (50Hz control), we want history every 10 steps
+    self._history_delta = int(0.20 / self._config.ctrl_dt)  # Every 10 steps at 50Hz
     
     # 8. Capacitance config
     self._cap_eps = self._config.capacitance_config.eps
@@ -1656,8 +1655,7 @@ class Avoid(h12_skin_base.H12SkinEnv):
     Terminate if:
     1. Joint limits exceeded
     2. Robot falls (low gravity_z)
-    3. Collision detected (capacitance > threshold)
-    4. Robot moves too far from origin (optional safety)
+    3. Robot moves too far from origin (optional safety)
     
     Args:
       data: MJX state
@@ -1674,17 +1672,14 @@ class Avoid(h12_skin_base.H12SkinEnv):
     # 2. Check if robot falls (gravity sensor z < threshold)
     gravity = self.get_gravity(data)
     fall_termination = gravity[2] < 0.85  # Torso tilted significantly
-    
-    # 3. Check collision
-    collision_detected = jp.any(capacitances > self._cap_collision_threshold)
-    
+        
     # 4. Check if robot moved too far (optional, safety boundary)
     base_pos = data.qpos[0:3]
     distance_from_origin = jp.linalg.norm(base_pos[:2])  # xy distance
     too_far = distance_from_origin > 5.0  # 5m safety radius
     
     # Combine conditions
-    terminate = joint_limit_exceed | fall_termination | collision_detected | too_far
+    terminate = joint_limit_exceed | fall_termination | too_far
     
     # Respect early_termination config flag
     terminate = jp.where(
