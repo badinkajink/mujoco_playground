@@ -346,10 +346,27 @@ class TrajectoryDatabase:
     
     if len(self.trajectories) == 0:
       raise ValueError("No valid trajectories loaded")
-    
+    self.max_traj_len = max(traj['time'].shape[0] for traj in self.trajectories)
     self.num_trajectories = len(self.trajectories)
-    self.trajectory_lengths = np.array(self.trajectory_lengths)
-    
+    # Stack all trajectories with padding
+    def pad_to_max(arr, max_len):
+        pad_len = max_len - arr.shape[0]
+        if pad_len == 0:
+            return arr
+        # Repeat last element
+        pad_arr = jp.repeat(arr[-1:], pad_len, axis=0)
+        return jp.concatenate([arr, pad_arr], axis=0)
+        
+    # Convert to stacked JAX arrays (N_traj, max_len, ...)
+    keys = self.trajectories[0].keys()
+    self.stacked_trajectories = {}
+    for key in keys:
+      arrays = [pad_to_max(jp.array(t[key]), self.max_traj_len) 
+                for t in self.trajectories]
+      self.stacked_trajectories[key] = jp.stack(arrays)    
+    # self.trajectory_lengths = np.array(self.trajectory_lengths)
+    self.trajectory_lengths = jp.array([t['time'].shape[0] for t in self.trajectories])
+
     print(f"Successfully loaded {self.num_trajectories} trajectories")
     print(f"Trajectory lengths: min={self.trajectory_lengths.min()}, "
           f"max={self.trajectory_lengths.max()}, "
@@ -422,15 +439,8 @@ class TrajectoryDatabase:
     Returns:
       Dictionary with trajectory data as JAX arrays
     """
-    # Sample random trajectory index
     traj_idx = jax.random.randint(rng, (), 0, self.num_trajectories)
-    traj_idx_np = int(traj_idx)
-    
-    # Get trajectory (convert to JAX arrays)
-    traj_np = self.trajectories[traj_idx_np]
-    traj_jax = {k: jp.array(v) for k, v in traj_np.items()}
-    
-    return traj_jax
+    return {k: v[traj_idx] for k, v in self.stacked_trajectories.items()}
   
   def get_reference_at_step(
       self,
@@ -495,7 +505,8 @@ class TrajectoryDatabase:
     Returns:
       Number of timesteps in trajectory
     """
-    return int(trajectory['time'].shape[0])
+    # return int(trajectory['time'].shape[0])
+    return jp.sum(trajectory['time'] != trajectory['time'][-1])
   
   def get_stats(self) -> Dict[str, any]:
     """Get statistics about loaded trajectories.
