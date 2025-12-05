@@ -91,7 +91,7 @@ def default_config() -> config_dict.ConfigDict:
           safe_threshold=10.0, # determined ad hoc by looking at some csvs, 1/0.10m
       ),
       
-      traj_dir="/home/wxie/workspace/h1_mujoco/augmented",
+      traj_dir="/home/humanoid/Programs/h1_mujoco/augmented",
       impl="jax",
       nconmax=8 * 8192,
       njmax=19 + 8 * 4,
@@ -407,6 +407,7 @@ class TrajectoryDatabase:
         'downsample_factor': self.downsample_factor,
         'controlled_qpos_indices': self.controlled_qpos_indices,
         'controlled_qvel_indices': self.controlled_qvel_indices,
+        # 'trajectories': self.trajectories,  # Save original trajectories too
     }
     
     with open(cache_file, 'wb') as f:
@@ -424,9 +425,10 @@ class TrajectoryDatabase:
     self.downsample_factor = cache_data['downsample_factor']
     self.controlled_qpos_indices = cache_data['controlled_qpos_indices']
     self.controlled_qvel_indices = cache_data['controlled_qvel_indices']
+    # self.trajectories = cache_data['trajectories']
     
     # No need to keep original trajectories list
-    self.trajectories = None
+    # self.trajectories = None
 
   def _load_trajectory(self, csv_file: Path) -> Dict[str, np.ndarray]:
     """Load a single trajectory CSV file.
@@ -1738,9 +1740,10 @@ class Avoid(h12_skin_base.H12SkinEnv):
     """
     # 1. Check joint limits for controlled joints only
     joint_angles = data.qpos[self._controlled_joint_indices]  # (21,)
-    joint_limit_exceed = jp.any(joint_angles < self._lowers)
-    joint_limit_exceed |= jp.any(joint_angles > self._uppers)
-    
+    # joint_limit_exceed = jp.any(joint_angles < self._lowers)
+    # joint_limit_exceed |= jp.any(joint_angles > self._uppers)
+    joint_limit_exceed = False
+
     # 2. Check if robot falls (gravity sensor z < threshold)
     gravity = self.get_gravity(data)
     fall_termination = gravity[2] < 0.85  # Torso tilted significantly
