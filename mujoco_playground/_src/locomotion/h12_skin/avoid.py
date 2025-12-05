@@ -29,9 +29,9 @@ from mujoco_playground._src.locomotion.h12_skin import h12_skin_constants as con
 def default_config() -> config_dict.ConfigDict:
   """Configuration for the avoidance task."""
   return config_dict.create(
-      ctrl_dt=0.02,
+      ctrl_dt=0.01,
       sim_dt=0.002,
-      episode_length=1000,  # Long enough for trajectory + recovery
+      episode_length=300,  # Long enough for trajectory + recovery
       early_termination=True,
       action_repeat=1,
       action_scale=0.6,
@@ -89,7 +89,7 @@ def default_config() -> config_dict.ConfigDict:
           collision_threshold=80.0,
       ),
       
-      traj_dir="./traj_logs",
+      traj_dir="/home/wxie/workspace/h1_mujoco/augmented",
       impl="jax",
       nconmax=8 * 8192,
       njmax=19 + 8 * 4,
@@ -327,7 +327,7 @@ class TrajectoryDatabase:
       raise FileNotFoundError(f"Trajectory directory not found: {traj_dir}")
     
     # Find all CSV files
-    csv_files = sorted(self.traj_dir.glob("episode_*.csv"))
+    csv_files = sorted(self.traj_dir.glob("*episode_*.csv"))
     
     if len(csv_files) == 0:
       raise ValueError(f"No CSV files found in {traj_dir}")
@@ -558,7 +558,7 @@ class TrajectoryDatabase:
 # Utility function for creating trajectory database with proper downsampling
 def create_trajectory_database(
     traj_dir: str,
-    control_freq_hz: float = 50.0,
+    control_freq_hz: float = 100.0,
     mpc_freq_hz: float = 500.0
 ) -> TrajectoryDatabase:
   """Create trajectory database with automatic downsampling.
@@ -593,7 +593,6 @@ class Avoid(h12_skin_base.H12SkinEnv):
     Sets up the MuJoCo model, trajectory database, and observation/action spaces.
     """
     if config is None:
-      from avoid import default_config  # Import from your main file
       config = default_config()
     # Update XML path to use h12_skin scene
     # TODO: Make sure this XML includes the obstacle and all 63 skin sensors
@@ -628,7 +627,6 @@ class Avoid(h12_skin_base.H12SkinEnv):
     self._obstacle_qvel_adr = self._mj_model.jnt_dofadr[self._obstacle_jnt_id]
     
     # 3. Get skin sensor site IDs (63 sensors)
-    from avoid import get_skin_site_ids  # Import from your main file
     skin_site_ids_np = get_skin_site_ids(self._mj_model)
     self._skin_site_ids = jp.array(skin_site_ids_np)
     self._num_skin_sensors = len(skin_site_ids_np)
@@ -725,7 +723,6 @@ class Avoid(h12_skin_base.H12SkinEnv):
     data = mjx.forward(self.mjx_model, data)
     
     # 4. Compute initial capacitances
-    from avoid import compute_all_capacitances  # Import from your main file
     capacitances = compute_all_capacitances(
         data,
         self._skin_site_ids,
@@ -805,7 +802,6 @@ class Avoid(h12_skin_base.H12SkinEnv):
     state.info['traj_step'] = traj_step
     
     # 4. Compute capacitances for current state
-    from avoid import compute_all_capacitances
     capacitances = compute_all_capacitances(
         data,
         self._skin_site_ids,
@@ -1842,9 +1838,7 @@ class Avoid(h12_skin_base.H12SkinEnv):
     
     Returns:
       Reward for maintaining desired offset
-    """
-    from avoid import compute_obstacle_centroid
-    
+    """    
     # Compute obstacle centroid from capacitances
     centroid, total_weight, num_detections = compute_obstacle_centroid(
         data, self._skin_site_ids, capacitances
