@@ -35,7 +35,7 @@ def default_config() -> config_dict.ConfigDict:
       early_termination=True,
       action_repeat=1,
       action_scale=0.6,
-      history_len=10,
+      history_len=3,
       
       # Add PD gains if needed (like Go1)
       Kp=100.0,  # Adjust for your robot
@@ -86,7 +86,7 @@ def default_config() -> config_dict.ConfigDict:
       capacitance_config=config_dict.create(
           eps=1.0,
           sensing_radius=0.15,
-          collision_threshold=10.0,
+          collision_threshold=80.0,
       ),
       
       traj_dir="./traj_logs",
@@ -664,7 +664,8 @@ class Avoid(h12_skin_base.H12SkinEnv):
     # 7. History sampling parameters (for 50Hz history from 500Hz control)
     # With ctrl_dt=0.02 (50Hz control), we want history every 10 steps
     self._history_delta = int(0.20 / self._config.ctrl_dt)  # Every 10 steps at 50Hz
-    
+    self._history_delta = 1
+
     # 8. Capacitance config
     self._cap_eps = self._config.capacitance_config.eps
     self._cap_sensing_radius = self._config.capacitance_config.sensing_radius
@@ -1527,8 +1528,8 @@ class Avoid(h12_skin_base.H12SkinEnv):
     # Check if any sensor exceeds collision threshold
     collision_detected = jp.any(capacitances > collision_threshold)
     
-    # Return -1.0 if collision, 0.0 otherwise
-    return jp.where(collision_detected, -1.0, 0.0)
+    # Return 1.0 if collision (* -100.0 collision penalty), 0.0 otherwise
+    return jp.where(collision_detected, 1.0, 0.0)
 
 
   def _cost_proximity(
