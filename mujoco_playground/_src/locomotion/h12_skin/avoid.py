@@ -59,14 +59,14 @@ def default_config() -> config_dict.ConfigDict:
               joint_vel_tracking=0.5,
               base_vel_tracking=1.0,
               base_angvel_tracking=0.5,
-              torque_tracking=0.1,
+              torque_tracking=0.0, # 0.1, i dont think this even works
               
               # Recovery rewards (active after trajectory ends)
               recovery_upright=1.0,
               recovery_height=1.0,
               recovery_posture=0.5,
               recovery_stability=0.5,
-              recovery_feet_contact=0.3,
+              recovery_feet_contact=0.0, # 0.3, seems superfluous
               
               # Avoidance rewards (always active)
               clearance_reward=0.0, #1.0, i dont think this is a good reward, zeroing out
