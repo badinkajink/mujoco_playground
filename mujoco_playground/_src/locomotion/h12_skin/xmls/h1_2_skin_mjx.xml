@@ -1,5 +1,5 @@
 <mujoco model="Handless Unitree H1_2 with Torso Skin and Position Actuators, for MJX">
-  <compiler angle="radian" meshdir="../mujoco_menagerie/unitree_h1_2_skin/assets" autolimits="true"/>
+  <compiler angle="radian" meshdir="../mujoco_menagerie/unitree_h12_skin/assets" autolimits="true"/>
   
   <option iterations="1" ls_iterations="5" timestep="0.004">
     <flag eulerdamp="disable"/>
@@ -7,8 +7,8 @@
 
   <default>
     <default class="h1_2">
+      <geom contype="0" conaffinity="0"/>
       <joint damping="1" armature="0.1"/>
-
       <default class="visual">
         <geom type="mesh" group="2" material="black"/>
       </default>
@@ -78,25 +78,25 @@
     <mesh name="right_ankle_pitch_link" file="right_ankle_pitch_link.STL"/>
     <mesh name="right_ankle_roll_link" file="right_ankle_roll_link.STL"/>
     <mesh name="torso_link" file="torso_link.STL"/>
-    <mesh name="torso_skin" file="skin/torso_skin.stl"/>
-    <mesh name="head_skin" file="skin/head_skin.stl"/>
+    <mesh name="torso_skin" file="torso_skin.stl"/>
+    <mesh name="head_skin" file="head_skin.stl"/>
     <mesh name="left_shoulder_pitch_link" file="left_shoulder_pitch_link.STL"/>
     <mesh name="left_shoulder_roll_link" file="left_shoulder_roll_link.STL"/>
-    <mesh name="shoulder_roll_L_skin" file="skin/shoulder_roll_L_skin.stl"/>
+    <mesh name="shoulder_roll_L_skin" file="shoulder_roll_L_skin.stl"/>
     <mesh name="left_shoulder_yaw_link" file="left_shoulder_yaw_link.STL"/>
-    <mesh name="shoulder_yaw_L_skin" file="skin/shoulder_yaw_L_skin.stl"/>
+    <mesh name="shoulder_yaw_L_skin" file="shoulder_yaw_L_skin.stl"/>
     <mesh name="left_elbow_link" file="left_elbow_link.STL"/>
-    <mesh name="elbow_L_skin" file="skin/elbow_L_skin.stl"/>
+    <mesh name="elbow_L_skin" file="elbow_L_skin.stl"/>
     <mesh name="left_wrist_roll_link" file="left_wrist_roll_link.STL"/>
     <mesh name="left_wrist_pitch_link" file="left_wrist_pitch_link.STL"/>
     <mesh name="wrist_yaw_link" file="wrist_yaw_link.STL"/>
     <mesh name="right_shoulder_pitch_link" file="right_shoulder_pitch_link.STL"/>
     <mesh name="right_shoulder_roll_link" file="right_shoulder_roll_link.STL"/>
-    <mesh name="shoulder_roll_R_skin" file="skin/shoulder_roll_R_skin.stl"/>
+    <mesh name="shoulder_roll_R_skin" file="shoulder_roll_R_skin.stl"/>
     <mesh name="right_shoulder_yaw_link" file="right_shoulder_yaw_link.STL"/>
-    <mesh name="shoulder_yaw_R_skin" file="skin/shoulder_yaw_R_skin.stl"/>
+    <mesh name="shoulder_yaw_R_skin" file="shoulder_yaw_R_skin.stl"/>
     <mesh name="right_elbow_link" file="right_elbow_link.STL"/>
-    <mesh name="elbow_R_skin" file="skin/elbow_R_skin.stl"/>
+    <mesh name="elbow_R_skin" file="elbow_R_skin.stl"/>
     <mesh name="right_wrist_roll_link" file="right_wrist_roll_link.STL"/>
     <mesh name="right_wrist_pitch_link" file="right_wrist_pitch_link.STL"/>
     <mesh name="logo_link" file="logo_link.STL"/>
