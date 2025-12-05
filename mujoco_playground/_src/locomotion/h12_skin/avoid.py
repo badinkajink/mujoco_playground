@@ -1564,7 +1564,8 @@ class Avoid(h12_skin_base.H12SkinEnv):
     # Normalize by number of sensors for consistent scale
     avg_proximity = total_proximity / jp.float32(capacitances.shape[0])
     
-    return -avg_proximity
+    # return -avg_proximity
+    return avg_proximity
 
 
   # ============================================================
@@ -1586,7 +1587,8 @@ class Avoid(h12_skin_base.H12SkinEnv):
       Negative cost proportional to action change
     """
     delta = action - last_action
-    return -jp.sum(delta ** 2)
+    # return -jp.sum(delta ** 2)
+    return jp.sum(delta ** 2)
 
 
   def _cost_torque(
@@ -1603,7 +1605,8 @@ class Avoid(h12_skin_base.H12SkinEnv):
       """
       # Get actuator forces (torques) for controlled joints only
       torques = data.qfrc_actuator[self._controlled_qvel_indices]  # (21,) actuated joints
-      return -jp.sum(torques ** 2)
+      # return -jp.sum(torques ** 2)
+      return jp.sum(torques ** 2)
 
 
   def _cost_energy(
@@ -1621,7 +1624,8 @@ class Avoid(h12_skin_base.H12SkinEnv):
       torques = data.qfrc_actuator[self._controlled_qvel_indices]  # (21,)
       qvel = data.qvel[self._controlled_qvel_indices]  # (21,)
       power = torques * qvel
-      return -jp.sum(jp.abs(power))
+      # return -jp.sum(jp.abs(power))
+      return jp.sum(jp.abs(power))
 
   def _cost_joint_limit(
       self,
