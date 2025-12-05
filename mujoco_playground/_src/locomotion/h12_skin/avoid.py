@@ -1738,7 +1738,7 @@ class Avoid(h12_skin_base.H12SkinEnv):
   def _reward_height(
         self,
         data,  # mjx.Data
-        target_height: float = 1.0
+        target_height: float = 1.03
     ) -> jax.Array:
     """Reward for achieving target torso height during recovery.
     
