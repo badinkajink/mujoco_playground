@@ -20,6 +20,7 @@ import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Optional
 import warnings
+import pickle
 
 from mujoco_playground._src import mjx_env
 from mujoco_playground._src.locomotion.h12_skin import base as h12_skin_base
@@ -312,6 +313,7 @@ class TrajectoryDatabase:
     """
     self.traj_dir = Path(traj_dir)
     self.downsample_factor = downsample_factor
+    cache_file = self.traj_dir / f"traj_cache_ds{downsample_factor}.pkl"
     self.trajectories = []
     self.trajectory_lengths = []
     # Define controlled joint indices (21 joints)
@@ -326,14 +328,31 @@ class TrajectoryDatabase:
 
     if not self.traj_dir.exists():
       raise FileNotFoundError(f"Trajectory directory not found: {traj_dir}")
-    
+
+    if cache_file.exists():
+      print(f"Loading trajectory database from cache: {cache_file}")
+      self._load_from_cache(cache_file)
+      print(f"Loaded {self.num_trajectories} trajectories from cache")
+    else:
+      # Load from CSVs (slow)
+      print(f"Cache not found, loading from CSVs...")
+      self._load_from_csvs()
+      # Print stats
+      stats = self.get_stats()
+      print(f"Trajectory database ready: {stats}")
+      # Save to cache for next time
+      print(f"Saving trajectory database to cache: {cache_file}")
+      self._save_to_cache(cache_file)
+      print(f"Cache saved")
+  
+  def _load_from_csvs(self):
     # Find all CSV files
     csv_files = sorted(self.traj_dir.glob("*episode_*.csv"))
     
     if len(csv_files) == 0:
-      raise ValueError(f"No CSV files found in {traj_dir}")
+      raise ValueError(f"No CSV files found in {self.traj_dir}")
     
-    print(f"Loading {len(csv_files)} trajectory files from {traj_dir}...")
+    print(f"Loading {len(csv_files)} trajectory files from {self.traj_dir}...")
     
     # Load each trajectory
     for csv_file in csv_files:
@@ -347,8 +366,13 @@ class TrajectoryDatabase:
     
     if len(self.trajectories) == 0:
       raise ValueError("No valid trajectories loaded")
+    
+    self._stack_trajectories()
+
+  def _stack_trajectories(self):
     self.max_traj_len = max(traj['time'].shape[0] for traj in self.trajectories)
     self.num_trajectories = len(self.trajectories)
+
     # Stack all trajectories with padding
     def pad_to_max(arr, max_len):
         pad_len = max_len - arr.shape[0]
@@ -365,14 +389,45 @@ class TrajectoryDatabase:
       arrays = [pad_to_max(jp.array(t[key]), self.max_traj_len) 
                 for t in self.trajectories]
       self.stacked_trajectories[key] = jp.stack(arrays)    
-    # self.trajectory_lengths = np.array(self.trajectory_lengths)
-    self.trajectory_lengths = jp.array([t['time'].shape[0] for t in self.trajectories])
+    self.trajectory_lengths = jp.array(self.trajectory_lengths)
+    # self.trajectory_lengths = jp.array([t['time'].shape[0] for t in self.trajectories])
 
     print(f"Successfully loaded {self.num_trajectories} trajectories")
     print(f"Trajectory lengths: min={self.trajectory_lengths.min()}, "
           f"max={self.trajectory_lengths.max()}, "
           f"mean={self.trajectory_lengths.mean():.1f}")
-  
+    
+  def _save_to_cache(self, cache_file: Path):
+    """Save processed database to pickle file."""
+    cache_data = {
+        'num_trajectories': self.num_trajectories,
+        'max_traj_len': self.max_traj_len,
+        'trajectory_lengths': self.trajectory_lengths,
+        'stacked_trajectories': self.stacked_trajectories,
+        'downsample_factor': self.downsample_factor,
+        'controlled_qpos_indices': self.controlled_qpos_indices,
+        'controlled_qvel_indices': self.controlled_qvel_indices,
+    }
+    
+    with open(cache_file, 'wb') as f:
+        pickle.dump(cache_data, f)
+
+  def _load_from_cache(self, cache_file: Path):
+    """Load processed database from pickle file."""
+    with open(cache_file, 'rb') as f:
+        cache_data = pickle.load(f)
+    
+    self.num_trajectories = cache_data['num_trajectories']
+    self.max_traj_len = cache_data['max_traj_len']
+    self.trajectory_lengths = cache_data['trajectory_lengths']
+    self.stacked_trajectories = cache_data['stacked_trajectories']
+    self.downsample_factor = cache_data['downsample_factor']
+    self.controlled_qpos_indices = cache_data['controlled_qpos_indices']
+    self.controlled_qvel_indices = cache_data['controlled_qvel_indices']
+    
+    # No need to keep original trajectories list
+    self.trajectories = None
+
   def _load_trajectory(self, csv_file: Path) -> Dict[str, np.ndarray]:
     """Load a single trajectory CSV file.
     Args:
@@ -1738,7 +1793,7 @@ class Avoid(h12_skin_base.H12SkinEnv):
   def _reward_height(
         self,
         data,  # mjx.Data
-        target_height: float = 1.03
+        target_height: float = 1.03 # determined in mujoco from torso_link
     ) -> jax.Array:
     """Reward for achieving target torso height during recovery.
     
