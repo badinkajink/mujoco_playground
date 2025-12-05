@@ -87,6 +87,7 @@ def default_config() -> config_dict.ConfigDict:
           eps=1.0,
           sensing_radius=0.15,
           collision_threshold=80.0,
+          safe_threshold=3.0,
       ),
       
       traj_dir="/home/wxie/workspace/h1_mujoco/augmented",
@@ -679,6 +680,7 @@ class Avoid(h12_skin_base.H12SkinEnv):
     self._cap_eps = self._config.capacitance_config.eps
     self._cap_sensing_radius = self._config.capacitance_config.sensing_radius
     self._cap_collision_threshold = self._config.capacitance_config.collision_threshold
+    self._cap_safe_threshold = self._config.capacitance_config.safe_threshold
   
   def reset(self, rng: jax.Array) -> mjx_env.State:
     """Reset environment and sample new reference trajectory.
@@ -1484,7 +1486,7 @@ class Avoid(h12_skin_base.H12SkinEnv):
   def _reward_clearance(
       self,
       capacitances: jax.Array,
-      safe_threshold: float = 2.0
+      safe_threshold: float = None
   ) -> jax.Array:
     """Reward for maintaining safe clearance from obstacle.
     
@@ -1499,6 +1501,8 @@ class Avoid(h12_skin_base.H12SkinEnv):
     """
     # Count sensors detecting obstacle (cap > 0) but below safe threshold
     in_range = capacitances > 0.0
+    if safe_threshold is None:
+      safe_threshold = self._cap_safe_threshold
     is_safe = capacitances < safe_threshold
     safe_detections = in_range & is_safe
     
