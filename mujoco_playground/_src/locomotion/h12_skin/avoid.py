@@ -32,7 +32,7 @@ def default_config() -> config_dict.ConfigDict:
   return config_dict.create(
       ctrl_dt=0.01,
       sim_dt=0.002,
-      episode_length=300,  # Long enough for trajectory + recovery
+      episode_length=500,  # Long enough for trajectory + recovery
       early_termination=True,
       action_repeat=1,
       action_scale=0.6,
@@ -729,8 +729,8 @@ class Avoid(h12_skin_base.H12SkinEnv):
     self._torso_body_id = self._mj_model.body("torso_link").id
     
     # 7. History sampling parameters (for 50Hz history from 500Hz control)
-    # With ctrl_dt=0.02 (50Hz control), we want history every 10 steps
-    self._history_delta = int(0.20 / self._config.ctrl_dt)  # Every 10 steps at 50Hz
+    # With ctrl_dt=0.01 (100Hz control), we want history every 10 steps
+    self._history_delta = int(0.08 / self._config.ctrl_dt)  # Every 8 steps at 100Hz
     self._history_delta = 1
 
     # 8. Capacitance config
@@ -1088,9 +1088,23 @@ class Avoid(h12_skin_base.H12SkinEnv):
         ref_state['robot_qpos'],      # 21
     ])
     
+    obstacle_centroid, total_weight, num_detections = compute_obstacle_centroid(
+      data, self._skin_site_ids, capacitances
+    )
+    # Add to actor obs (this is computable from capacitances, so realistic!)
+    obstacle_direction = obstacle_centroid - data.xpos[self._torso_body_id]  # Vector to obstacle
+    obstacle_distance = jp.linalg.norm(obstacle_direction)
+    obstacle_direction_normalized = obstacle_direction / (obstacle_distance + 1e-6)
+  
     # Concatenate actor observation
-    actor_obs = jp.concatenate([noisy_proprio, partial_ref])
-    
+    # Add these 4 values to actor_obs:
+    actor_obs = jp.concatenate([
+        noisy_proprio, 
+        obstacle_direction_normalized[:2],  # xy direction (3D might be redundant)
+        jp.array([obstacle_distance]),      # scalar distance
+        jp.array([total_weight]),           # detection strength
+        partial_ref
+    ])    
     # ============ CRITIC OBSERVATION (Privileged) ============
     
     # True base state (from floating base qpos/qvel)
