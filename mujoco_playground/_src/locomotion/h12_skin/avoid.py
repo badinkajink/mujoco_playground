@@ -32,7 +32,7 @@ def default_config() -> config_dict.ConfigDict:
   return config_dict.create(
       ctrl_dt=0.01,
       sim_dt=0.002,
-      episode_length=150,  # Long enough for trajectory + recovery
+      episode_length=300,  # Long enough for trajectory + recovery
       early_termination=True,
       action_repeat=1,
       action_scale=0.6,
