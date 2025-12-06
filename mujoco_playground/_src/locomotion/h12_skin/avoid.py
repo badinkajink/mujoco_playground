@@ -32,7 +32,7 @@ def default_config() -> config_dict.ConfigDict:
   return config_dict.create(
       ctrl_dt=0.01,
       sim_dt=0.002,
-      episode_length=500,  # Long enough for trajectory + recovery
+      episode_length=150,  # Long enough for trajectory + recovery
       early_termination=True,
       action_repeat=1,
       action_scale=0.6,
@@ -1760,7 +1760,7 @@ class Avoid(h12_skin_base.H12SkinEnv):
 
     # 2. Check if robot falls (gravity sensor z < threshold)
     gravity = self.get_gravity(data)
-    fall_termination = gravity[2] < 0.85  # Torso tilted significantly
+    fall_termination = gravity[2] < 0.3  # Torso tilted significantly
         
     # 4. Check if robot moved too far (optional, safety boundary)
     base_pos = data.qpos[0:3]
