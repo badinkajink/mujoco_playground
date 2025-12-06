@@ -56,7 +56,7 @@ def default_config() -> config_dict.ConfigDict:
       reward_config=config_dict.create(
           scales=config_dict.create(
               # Tracking rewards (active during MPC trajectory)
-              joint_pos_tracking=100.0,
+              joint_pos_tracking=1000.0,
               joint_vel_tracking=0.5,
               base_vel_tracking=100.0,
               base_angvel_tracking=50.0,
