@@ -56,10 +56,10 @@ def default_config() -> config_dict.ConfigDict:
       reward_config=config_dict.create(
           scales=config_dict.create(
               # Tracking rewards (active during MPC trajectory)
-              joint_pos_tracking=10.0,
+              joint_pos_tracking=100.0,
               joint_vel_tracking=0.5,
-              base_vel_tracking=10.0,
-              base_angvel_tracking=5.0,
+              base_vel_tracking=100.0,
+              base_angvel_tracking=50.0,
               torque_tracking=0.0, # 0.1, i dont think this even works
               
               # Recovery rewards (active after trajectory ends)
@@ -73,12 +73,12 @@ def default_config() -> config_dict.ConfigDict:
               clearance_reward=0.0, #1.0, i dont think this is a good reward, zeroing out
               
               # Penalties (always active)
-              collision_penalty=-100.0,
-              proximity_penalty=-2.0,
+              collision_penalty=-10.0,
+              proximity_penalty=-0.2,
               
               # Regularization (always active)
-              action_rate=-0.1,
-              torque=-0.01,
+              action_rate=-0.01,
+              torque=-0.001,
               energy=-0.001,
               joint_limit=-1.0,
           ),
